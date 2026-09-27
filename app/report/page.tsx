@@ -63,6 +63,8 @@ export default function ReportPage() {
   const [manualEntry, setManualEntry] = useState(false)
   const [manualText, setManualText] = useState("")
   const [submitted, setSubmitted] = useState<Report | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
 
   const hasLocation = location.source !== null && location.label.trim().length > 0
 
@@ -133,19 +135,27 @@ export default function ReportPage() {
     })
   }
 
-  const submit = () => {
-    if (!category || !hasLocation) return
-    const report = addReport({
-      category,
-      tags,
-      description: description.trim(),
-      image,
-      latitude: location.lat,
-      longitude: location.lng,
-      approximateLocation: location.label,
-      severity,
-    })
-    setSubmitted(report)
+  const submit = async () => {
+    if (!category || !hasLocation || submitting) return
+    setSubmitting(true)
+    setSubmitError(null)
+    try {
+      const report = await addReport({
+        category,
+        tags,
+        description: description.trim(),
+        image,
+        latitude: location.lat,
+        longitude: location.lng,
+        approximateLocation: location.label,
+        severity,
+      })
+      setSubmitted(report)
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : "We couldn't save your report. Please try again.")
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   if (submitted) {
@@ -579,12 +589,18 @@ export default function ReportPage() {
         )}
       </div>
 
+      {submitError && step === STEPS.length - 1 && (
+        <p className="mt-4 rounded-xl bg-crisis/10 px-3 py-2 text-sm text-crisis" role="alert">
+          {submitError}
+        </p>
+      )}
+
       {/* Nav */}
       <div className="mt-6 flex items-center justify-between">
         <button
           type="button"
           onClick={() => setStep((s) => Math.max(0, s - 1))}
-          disabled={step === 0}
+          disabled={step === 0 || submitting}
           className="inline-flex items-center gap-1.5 rounded-full px-4 py-2.5 text-sm font-medium text-muted-foreground disabled:opacity-40"
         >
           <ArrowLeft className="size-4" />
@@ -596,9 +612,9 @@ export default function ReportPage() {
             <ArrowRight className="size-4" />
           </Button>
         ) : (
-          <Button onClick={submit}>
-            <Check className="size-4" />
-            Submit report
+          <Button onClick={submit} disabled={submitting}>
+            {submitting ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
+            {submitting ? "Submitting…" : "Submit report"}
           </Button>
         )}
       </div>
