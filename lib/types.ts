@@ -55,6 +55,12 @@ export interface Report {
   confirmedByMe?: boolean
   incidentId?: string
   isCrisis?: boolean
+  /**
+   * Optional Gemini quality-control result. Not yet persisted — the TigerData
+   * layer will populate this once it stores verification results. When absent,
+   * the UI treats the report as "AI verification pending".
+   */
+  verification?: import("./gemini/types").VerificationResult
 }
 
 export interface Incident {

@@ -7,6 +7,7 @@ import { CategoryIcon } from "@/components/category-icon"
 import { SeverityBadge } from "@/components/severity-badge"
 import { FollowButton } from "@/components/follow-button"
 import { ListenButton } from "@/components/listen-button"
+import { VerificationStatus } from "@/components/verification-status"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { categoryMeta } from "@/lib/categories"
@@ -68,6 +69,8 @@ export function ReportDetail({
         </div>
 
         <p className="text-pretty leading-relaxed">{report.description}</p>
+
+        <VerificationStatus report={report} />
 
         {!isOwnReport && (
           <div className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3">
