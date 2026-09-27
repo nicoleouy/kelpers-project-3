@@ -46,7 +46,7 @@ export default function HomePage() {
               Good already underway
             </span>
             <h1 className="mt-4 text-balance font-display text-4xl font-semibold leading-[1.05] tracking-tight md:text-6xl">
-              Neighbors are already making a difference.
+              You are already making a difference.
             </h1>
             <p className="mt-4 max-w-xl text-pretty text-base text-muted-foreground md:text-lg">
               This month the community logged{" "}
