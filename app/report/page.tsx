@@ -27,6 +27,7 @@ import { useStore } from "@/lib/store"
 import { CATEGORIES, CATEGORY_GROUPS, SEVERITY_META, SEVERITY_ORDER, categoryMeta } from "@/lib/categories"
 import { CURRENT_USER } from "@/lib/mock-data"
 import { tagSuggestions } from "@/lib/tags"
+import { IMAGE_ACCEPT, imageFileError } from "@/lib/uploads/rules"
 import type { CategoryId, Report, Severity } from "@/lib/types"
 
 const SAMPLE_IMAGES = [
@@ -54,6 +55,8 @@ export default function ReportPage() {
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [step, setStep] = useState(0)
   const [image, setImage] = useState<string | undefined>()
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
   const [group, setGroup] = useState<string>(CATEGORY_GROUPS[0])
   const [category, setCategory] = useState<CategoryId | null>(null)
   const [description, setDescription] = useState("")
@@ -69,12 +72,44 @@ export default function ReportPage() {
 
   const hasLocation = location.source !== null && location.label.trim().length > 0
 
+  const chooseImage = (src: string | undefined) => {
+    if (uploading) return
+    setUploadError(null)
+    setImage(src)
+  }
+
+  const uploadPhoto = async (input: HTMLInputElement) => {
+    const file = input.files?.[0]
+    input.value = ""
+    if (!file || uploading) return
+    const invalid = imageFileError(file)
+    if (invalid) {
+      setUploadError(invalid)
+      return
+    }
+    setUploadError(null)
+    setUploading(true)
+    try {
+      const body = new FormData()
+      body.append("file", file)
+      const res = await fetch("/api/upload", { method: "POST", body })
+      const data = (await res.json().catch(() => null)) as { url?: string; error?: string } | null
+      if (!res.ok || !data?.url) throw new Error(data?.error ?? "We couldn't upload your photo. Please try again.")
+      setImage(data.url)
+    } catch (error) {
+      setUploadError(error instanceof Error ? error.message : "We couldn't upload your photo. Please try again.")
+    } finally {
+      setUploading(false)
+    }
+  }
+
   const canNext =
-    step === 0 ||
+    !uploading &&
+    (step === 0 ||
     (step === 1 && category !== null) ||
     (step === 2 && description.trim().length > 0) ||
     (step === 3 && hasLocation) ||
-    step === 4
+    step === 4)
 
   const suggestions = useMemo(
     () => tagSuggestions(category, tagInput, tags),
@@ -137,7 +172,7 @@ export default function ReportPage() {
   }
 
   const submit = async () => {
-    if (!category || !hasLocation || submitting) return
+    if (!category || !hasLocation || submitting || uploading) return
     setSubmitting(true)
     setSubmitError(null)
     const result = await submitReport({
@@ -246,6 +281,7 @@ export default function ReportPage() {
               setSubmitted(null)
               setStep(0)
               setImage(undefined)
+              setUploadError(null)
               setCategory(null)
               setDescription("")
               setTags([])
@@ -287,24 +323,54 @@ export default function ReportPage() {
           <div>
             <h2 className="font-display text-xl font-semibold">Add a photo</h2>
             <p className="mb-4 text-sm text-muted-foreground">A photo helps others understand and verify. Optional.</p>
-            {image ? (
+            {uploading ? (
+              <div
+                role="status"
+                className="flex aspect-video w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-primary/40 bg-primary/5 text-primary"
+              >
+                <Loader2 className="size-8 animate-spin" />
+                <span className="text-sm font-medium">Uploading photo...</span>
+              </div>
+            ) : image ? (
               <div className="relative overflow-hidden rounded-2xl">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={image || "/placeholder.svg"} alt="Selected" className="aspect-video w-full object-cover" />
-                <button
-                  type="button"
-                  onClick={() => setImage(undefined)}
-                  className="absolute right-3 top-3 rounded-full bg-card/90 px-3 py-1.5 text-xs font-medium shadow"
-                >
-                  Remove
-                </button>
+                <div className="absolute right-3 top-3 flex gap-2">
+                  <label className="cursor-pointer rounded-full bg-card/90 px-3 py-1.5 text-xs font-medium shadow focus-within:ring-2 focus-within:ring-ring">
+                    Replace
+                    <input
+                      type="file"
+                      accept={IMAGE_ACCEPT}
+                      className="sr-only"
+                      onChange={(e) => uploadPhoto(e.currentTarget)}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => chooseImage(undefined)}
+                    className="rounded-full bg-card/90 px-3 py-1.5 text-xs font-medium shadow"
+                  >
+                    Remove
+                  </button>
+                </div>
               </div>
             ) : (
-              <label className="flex aspect-video w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-border bg-secondary/40 text-muted-foreground transition-colors hover:bg-secondary">
+              <label className="flex aspect-video w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-border bg-secondary/40 text-muted-foreground transition-colors hover:bg-secondary focus-within:ring-2 focus-within:ring-ring">
                 <Camera className="size-8" />
                 <span className="text-sm font-medium">Take or upload a photo</span>
-                <input type="file" accept="image/*" className="hidden" onChange={() => setImage(SAMPLE_IMAGES[0])} />
+                <span className="text-xs">JPG, PNG, WEBP, GIF, or HEIC, up to 4 MB</span>
+                <input
+                  type="file"
+                  accept={IMAGE_ACCEPT}
+                  className="sr-only"
+                  onChange={(e) => uploadPhoto(e.currentTarget)}
+                />
               </label>
+            )}
+            {uploadError && (
+              <p role="alert" className="mt-3 rounded-xl bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {uploadError}
+              </p>
             )}
             <p className="mb-2 mt-5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               <ImageIcon className="size-3.5" /> Or pick a sample
@@ -314,7 +380,9 @@ export default function ReportPage() {
                 <button
                   key={src}
                   type="button"
-                  onClick={() => setImage(src)}
+                  onClick={() => chooseImage(src)}
+                  disabled={uploading}
+                  aria-pressed={image === src}
                   className={cn(
                     "aspect-square overflow-hidden rounded-xl border-2 transition-colors",
                     image === src ? "border-primary" : "border-transparent",
