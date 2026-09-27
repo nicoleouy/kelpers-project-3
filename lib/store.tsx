@@ -20,6 +20,7 @@ import type {
 import useSWR from "swr"
 import { requestVerification, type VerificationState } from "./verification/client"
 import { createReport, fetchReports } from "./reports/client"
+import { revalidateHeatmaps } from "./heatmap/client"
 
 export type NewReport = Omit<Report, "id" | "createdAt" | "confirmationCount" | "userId" | "userName">
 export type SubmitReportResult = { ok: true; report: Report } | { ok: false; error: string }
@@ -176,6 +177,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const incidentId = input.incidentId ?? findRelatedIncidentId(saved.report, incidents)
       const report: Report = { ...saved.report, incidentId }
       commitReport(report)
+      void revalidateHeatmaps()
       setVerifications((prev) => ({ ...prev, [report.id]: verification }))
       return { ok: true, report }
     }

@@ -3,8 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { ArrowRight, CalendarDays, Map as MapIcon, Megaphone, Plus, TrendingUp } from "lucide-react"
-import { MapView } from "@/components/map/map-view"
-import { MapLegend } from "@/components/map-legend"
+import { LiveHeatmap } from "@/components/map/live-heatmap"
 import { IncidentCard } from "@/components/incident-card"
 import { OpportunityCard } from "@/components/opportunity-card"
 import { ReportDetail } from "@/components/report-detail"
@@ -42,22 +41,14 @@ export default function InitiativesPage() {
               <MapIcon className="size-5 text-primary" aria-hidden />
               Visualization
             </h2>
-            <p className="text-sm text-muted-foreground">Live environmental reports and incidents from your community.</p>
+            <p className="text-sm text-muted-foreground">Where your community has been submitting reports, live from Tiger Data.</p>
           </div>
           <Link href="/map" className="hidden items-center gap-1 text-sm font-medium text-primary sm:flex">
             Full map
             <ArrowRight className="size-4" />
           </Link>
         </div>
-        <div className="relative isolate h-[360px] overflow-hidden rounded-3xl border border-border shadow-sm md:h-[460px]">
-          <MapView
-            reports={reports}
-            incidents={incidents}
-            opportunities={volunteer}
-            onSelect={(kind, id) => setSelected({ kind, id })}
-          />
-          <MapLegend />
-        </div>
+        <LiveHeatmap />
       </section>
 
       {/* Nearby incidents */}

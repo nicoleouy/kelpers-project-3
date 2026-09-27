@@ -5,7 +5,7 @@ import { CURRENT_USER } from "@/lib/mock-data"
 import type { CategoryId, Report, Severity } from "@/lib/types"
 import type { NewReportInput } from "./validate"
 
-const TABLE = "environmental_reports"
+export const TABLE = "environmental_reports"
 const CATEGORY_IDS = new Set<string>(CATEGORIES.map((c) => c.id))
 
 type ColumnInfo = Map<string, string>
@@ -14,7 +14,7 @@ type ColumnInfo = Map<string, string>
 // instead of assuming them — an unknown column would fail every insert.
 let columnsPromise: Promise<ColumnInfo> | null = null
 
-function getColumns(): Promise<ColumnInfo> {
+export function getColumns(): Promise<ColumnInfo> {
   columnsPromise ??= query<{ column_name: string; udt_name: string }>(
     `SELECT column_name, udt_name
        FROM information_schema.columns

@@ -8,6 +8,8 @@ import { MapContainer, Marker, TileLayer, useMap } from "react-leaflet"
 import { CategoryIcon } from "@/components/category-icon"
 import { categoryMeta, SEVERITY_META } from "@/lib/categories"
 import type { Incident, Report, VolunteerOpportunity } from "@/lib/types"
+import type { HeatCell, HeatmapCategory } from "@/lib/heatmap/types"
+import { HeatLayer } from "./heat-layer"
 
 export interface MapPoint {
   kind: "report" | "incident" | "opportunity"
@@ -94,7 +96,13 @@ function buildIcon(point: MapPoint, highlighted: boolean) {
 // Frames the initial view once, when points first become available. It never
 // refits afterwards, so selecting a marker or changing filters won't disrupt
 // the user's current zoom/pan.
-function FitOnce({ points, center }: { points: MapPoint[]; center: [number, number] }) {
+function FitOnce({
+  points,
+  center,
+}: {
+  points: Pick<MapPoint, "latitude" | "longitude">[]
+  center: [number, number]
+}) {
   const map = useMap()
   const done = useRef(false)
 
@@ -144,7 +152,9 @@ export default function EcoMap({
   zoom = 11,
   focus = null,
   highlightId = null,
+  heat,
 }: {
+  heat?: { cells: HeatCell[]; maxCount: number; category: HeatmapCategory }
   reports: Report[]
   incidents: Incident[]
   opportunities?: VolunteerOpportunity[]
@@ -162,6 +172,13 @@ export default function EcoMap({
     ],
     [incidents, reports, opportunities],
   )
+  const fitPoints = useMemo(
+    () =>
+      points.length > 0 || !heat
+        ? points
+        : heat.cells.map(([latitude, longitude]) => ({ latitude, longitude })),
+    [points, heat],
+  )
 
   return (
     <MapContainer
@@ -175,8 +192,9 @@ export default function EcoMap({
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
-      <FitOnce points={points} center={center} />
+      <FitOnce points={fitPoints} center={center} />
       <FocusOn focus={focus} />
+      {heat && <HeatLayer cells={heat.cells} maxCount={heat.maxCount} category={heat.category} />}
       {points.map((p) => {
         const highlighted = highlightId === p.id
         return (
