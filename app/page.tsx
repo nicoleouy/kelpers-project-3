@@ -5,8 +5,7 @@ import Link from "next/link"
 import {
   ArrowRight,
   Flame,
-  LifeBuoy,
-  Microscope,
+  Heart,
   Plus,
   Sparkles,
   TrendingUp,
@@ -19,32 +18,10 @@ import { IncidentCard } from "@/components/incident-card"
 import { ReportCard } from "@/components/report-card"
 import { ReportDetail } from "@/components/report-detail"
 import { IncidentDetail } from "@/components/incident-detail"
+import { OpportunityDetail } from "@/components/opportunity-detail"
 import { DetailPanel } from "@/components/detail-panel"
 import { useStore } from "@/lib/store"
-
-const ACTIONS = [
-  {
-    href: "/report",
-    icon: Plus,
-    title: "Report",
-    copy: "Tell us what you're seeing.",
-    accent: "bg-primary text-primary-foreground",
-  },
-  {
-    href: "/help",
-    icon: LifeBuoy,
-    title: "Help",
-    copy: "Find ways to take action nearby.",
-    accent: "bg-accent text-accent-foreground",
-  },
-  {
-    href: "/research",
-    icon: Microscope,
-    title: "Contribute",
-    copy: "Help researchers understand our environment.",
-    accent: "bg-secondary text-secondary-foreground",
-  },
-]
+import { IMPACT_STATS } from "@/lib/mock-data"
 
 const MODULES = [
   {
@@ -78,11 +55,14 @@ const MODULES = [
 ]
 
 export default function HomePage() {
-  const { reports, incidents, observationCount } = useStore()
-  const [selected, setSelected] = useState<{ kind: "report" | "incident"; id: string } | null>(null)
+  const { reports, incidents, volunteer, observationCount } = useStore()
+  const [selected, setSelected] = useState<{ kind: "report" | "incident" | "opportunity"; id: string } | null>(null)
 
   const selectedReport = selected?.kind === "report" ? reports.find((r) => r.id === selected.id) : undefined
   const selectedIncident = selected?.kind === "incident" ? incidents.find((i) => i.id === selected.id) : undefined
+  const selectedOpportunity = selected?.kind === "opportunity" ? volunteer.find((o) => o.id === selected.id) : undefined
+  const volunteerSignups = volunteer.reduce((sum, o) => sum + o.registeredCount, 0)
+  const panelTitle = selectedIncident ? "Incident" : selectedOpportunity ? "Opportunity" : "Report"
 
   return (
     <div className="flex flex-col gap-12">
@@ -98,59 +78,48 @@ export default function HomePage() {
           </div>
           <span className="inline-flex items-center gap-1.5 rounded-full bg-card/80 px-3 py-1 text-xs font-medium text-primary shadow-sm">
             <Sparkles className="size-3.5" />
-            Community environmental intelligence
+            Good already underway
           </span>
           <h1 className="mt-4 text-balance font-display text-4xl font-semibold leading-[1.05] tracking-tight md:text-6xl">
-            See something.
-            <br />
-            Make a difference.
+            Neighbors are already making a difference.
           </h1>
           <p className="mt-4 max-w-xl text-pretty text-base text-muted-foreground md:text-lg">
-            Report environmental conditions around you, discover ways to help, and contribute to environmental research.
+            This month the community logged{" "}
+            <span className="font-semibold text-foreground">{observationCount.toLocaleString()}</span> observations,
+            watched{" "}
+            <span className="font-semibold text-foreground">{IMPACT_STATS.likelyIncidents.toLocaleString()}</span> likely
+            incidents, and filled{" "}
+            <span className="font-semibold text-foreground">{volunteerSignups.toLocaleString()}</span> volunteer spots.
           </p>
+          <dl className="mt-6 grid grid-cols-3 gap-2 sm:max-w-lg">
+            {[
+              { label: "Observations", value: observationCount.toLocaleString() },
+              { label: "Likely incidents", value: IMPACT_STATS.likelyIncidents.toLocaleString() },
+              { label: "Volunteer signups", value: volunteerSignups.toLocaleString() },
+            ].map((stat) => (
+              <div key={stat.label} className="rounded-2xl border border-border/70 bg-card/80 px-3 py-3 text-center shadow-sm">
+                <dt className="text-[11px] font-medium text-muted-foreground">{stat.label}</dt>
+                <dd className="mt-1 font-display text-xl font-semibold tabular-nums md:text-2xl">{stat.value}</dd>
+              </div>
+            ))}
+          </dl>
           <div className="mt-6 flex flex-wrap gap-3">
             <Link
-              href="/report"
+              href="/help"
               className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-transform hover:scale-[1.03]"
             >
-              <Plus className="size-4" />
-              Report something
+              <Heart className="size-4" />
+              Join the work
             </Link>
             <Link
               href="/map"
               className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-5 py-2.5 text-sm font-semibold transition-colors hover:bg-secondary"
             >
-              Explore the map
+              See it on the map
               <ArrowRight className="size-4" />
             </Link>
           </div>
         </div>
-      </section>
-
-      {/* Action cards */}
-      <section className="grid gap-4 sm:grid-cols-3">
-        {ACTIONS.map((a) => {
-          const Icon = a.icon
-          return (
-            <Link
-              key={a.href}
-              href={a.href}
-              className="group flex flex-col gap-3 rounded-2xl border border-border bg-card p-5 shadow-sm transition-all hover:-translate-y-1 hover:shadow-md"
-            >
-              <span className={`grid size-11 place-items-center rounded-xl ${a.accent}`}>
-                <Icon className="size-5" />
-              </span>
-              <div>
-                <h2 className="font-display text-lg font-semibold">{a.title}</h2>
-                <p className="text-sm text-muted-foreground">{a.copy}</p>
-              </div>
-              <span className="mt-auto flex items-center gap-1 text-sm font-medium text-primary">
-                Get started
-                <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
-              </span>
-            </Link>
-          )
-        })}
       </section>
 
       {/* Response modules */}
@@ -199,9 +168,8 @@ export default function HomePage() {
           <MapView
             reports={reports}
             incidents={incidents}
-            onSelect={(kind, id) => {
-              if (kind !== "opportunity") setSelected({ kind, id })
-            }}
+            opportunities={volunteer}
+            onSelect={(kind, id) => setSelected({ kind, id })}
           />
         </div>
       </section>
@@ -245,17 +213,22 @@ export default function HomePage() {
         </Link>
       </section>
 
-      <DetailPanel
-        open={Boolean(selected)}
-        onClose={() => setSelected(null)}
-        title={selectedIncident ? "Incident" : "Report"}
-      >
+      <DetailPanel open={Boolean(selected)} onClose={() => setSelected(null)} title={panelTitle}>
         {selectedReport && (
-          <ReportDetail report={selectedReport} onOpenIncident={(id) => setSelected({ kind: "incident", id })} />
+          <ReportDetail
+            report={selectedReport}
+            onOpenIncident={(id) => setSelected({ kind: "incident", id })}
+            onOpenOpportunity={(id) => setSelected({ kind: "opportunity", id })}
+          />
         )}
         {selectedIncident && (
-          <IncidentDetail incident={selectedIncident} onOpenReport={(id) => setSelected({ kind: "report", id })} />
+          <IncidentDetail
+            incident={selectedIncident}
+            onOpenReport={(id) => setSelected({ kind: "report", id })}
+            onOpenOpportunity={(id) => setSelected({ kind: "opportunity", id })}
+          />
         )}
+        {selectedOpportunity && <OpportunityDetail opp={selectedOpportunity} />}
       </DetailPanel>
     </div>
   )

@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import type { ReactNode } from "react"
 import {
   Home,
@@ -18,7 +18,7 @@ import { useStore } from "@/lib/store"
 const primaryNav = [
   { href: "/", label: "Home", icon: Home },
   { href: "/map", label: "Map", icon: MapIcon },
-  { href: "/help", label: "Help Others", icon: LifeBuoy },
+  { href: "/help", label: "Kelp Others", icon: LifeBuoy },
   { href: "/research", label: "Research", icon: Microscope },
   { href: "/profile", label: "Profile", icon: User },
 ]
@@ -45,12 +45,24 @@ function Brand() {
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname()
+  const router = useRouter()
   const { viewMode, setViewMode } = useStore()
   const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href))
+  const onOrganization = pathname.startsWith("/organization")
+
+  const switchToCommunity = () => {
+    setViewMode("community")
+    if (onOrganization) router.push("/")
+  }
+
+  const switchToOrganization = () => {
+    setViewMode("organization")
+    if (!onOrganization) router.push("/organization")
+  }
 
   return (
-    <div className="min-h-dvh">
-      <header className="sticky top-0 z-40 border-b border-border/70 bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70">
+    <div className="flex h-dvh flex-col overflow-hidden">
+      <header className="sticky top-0 z-40 shrink-0 border-b border-border/70 bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4">
           <Brand />
 
@@ -76,27 +88,29 @@ export function AppShell({ children }: { children: ReactNode }) {
           </nav>
 
           <div className="flex items-center gap-2">
-            <div className="hidden items-center rounded-full border border-border bg-card p-0.5 text-xs font-medium sm:flex">
+            <div className="flex items-center rounded-full border border-border bg-card p-0.5 text-xs font-medium">
               <button
                 type="button"
-                onClick={() => setViewMode("community")}
+                onClick={switchToCommunity}
+                aria-pressed={viewMode === "community"}
                 className={cn(
-                  "rounded-full px-3 py-1.5 transition-colors",
+                  "rounded-full px-2.5 py-1.5 transition-colors sm:px-3",
                   viewMode === "community" ? "bg-primary text-primary-foreground" : "text-muted-foreground",
                 )}
               >
                 Community
               </button>
-              <Link
-                href="/organization"
-                onClick={() => setViewMode("organization")}
+              <button
+                type="button"
+                onClick={switchToOrganization}
+                aria-pressed={viewMode === "organization"}
                 className={cn(
-                  "rounded-full px-3 py-1.5 transition-colors",
+                  "rounded-full px-2.5 py-1.5 transition-colors sm:px-3",
                   viewMode === "organization" ? "bg-primary text-primary-foreground" : "text-muted-foreground",
                 )}
               >
                 Organization
-              </Link>
+              </button>
             </div>
 
             <Link
@@ -109,19 +123,24 @@ export function AppShell({ children }: { children: ReactNode }) {
 
             <Link
               href="/report"
-              className="flex items-center gap-1.5 rounded-full bg-primary px-3.5 py-2 text-sm font-semibold text-primary-foreground shadow-sm transition-transform hover:scale-[1.03]"
+              className="hidden items-center gap-1.5 rounded-full bg-primary px-3.5 py-2 text-sm font-semibold text-primary-foreground shadow-sm transition-transform hover:scale-[1.03] sm:flex"
             >
               <Plus className="size-4" />
-              <span className="hidden sm:inline">Report</span>
+              <span>Report</span>
             </Link>
           </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-4 pb-28 pt-6 md:pb-16">{children}</main>
+      <main className="mx-auto min-h-0 w-full max-w-6xl flex-1 overflow-y-auto px-4 pb-6 pt-6 md:pb-16">
+        {children}
+      </main>
 
-      {/* Mobile bottom navigation */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur md:hidden">
+      {/* Mobile bottom navigation — in normal flow so the page scrollbar stops above it */}
+      <nav
+        className="z-40 shrink-0 border-t border-border bg-background/95 backdrop-blur md:hidden"
+        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+      >
         <div className="mx-auto flex max-w-md items-center justify-around px-2 py-1.5">
           {bottomNav.map((item) => {
             const Icon = item.icon

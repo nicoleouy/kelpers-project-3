@@ -7,7 +7,13 @@ import { cn } from "@/lib/utils"
 import { useStore } from "@/lib/store"
 import type { VolunteerOpportunity } from "@/lib/types"
 
-export function OpportunityCard({ opp }: { opp: VolunteerOpportunity }) {
+export function OpportunityCard({
+  opp,
+  onOpen,
+}: {
+  opp: VolunteerOpportunity
+  onOpen?: () => void
+}) {
   const { toggleRegister, toggleSave } = useStore()
   const full = opp.registeredCount >= opp.capacity
   const spotsLeft = Math.max(0, opp.capacity - opp.registeredCount)
@@ -15,9 +21,18 @@ export function OpportunityCard({ opp }: { opp: VolunteerOpportunity }) {
   return (
     <article className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md">
       <div className="flex items-start justify-between gap-2">
-        <div>
-          <h3 className="font-display text-base font-semibold leading-tight">{opp.title}</h3>
-          <p className="text-xs text-muted-foreground">{opp.organizationName}</p>
+        <div className="min-w-0">
+          {onOpen ? (
+            <button type="button" onClick={onOpen} className="text-left">
+              <h3 className="font-display text-base font-semibold leading-tight">{opp.title}</h3>
+              <p className="text-xs text-muted-foreground">{opp.organizationName}</p>
+            </button>
+          ) : (
+            <>
+              <h3 className="font-display text-base font-semibold leading-tight">{opp.title}</h3>
+              <p className="text-xs text-muted-foreground">{opp.organizationName}</p>
+            </>
+          )}
         </div>
         <button
           type="button"

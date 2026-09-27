@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { ChevronDown, Info } from "lucide-react"
 import { CategoryIcon } from "@/components/category-icon"
 import { cn } from "@/lib/utils"
@@ -35,6 +35,14 @@ function Swatch({
 
 export function MapLegend() {
   const [open, setOpen] = useState(false)
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)")
+    setOpen(mq.matches)
+    const onChange = () => setOpen(mq.matches)
+    mq.addEventListener("change", onChange)
+    return () => mq.removeEventListener("change", onChange)
+  }, [])
 
   const items = [
     {

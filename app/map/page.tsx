@@ -77,6 +77,13 @@ function MapPageInner() {
         setHighlightId(inc.id)
         setSelected({ kind: "incident", id: inc.id })
       }
+    } else if (kind === "opportunity") {
+      const opp = volunteer.find((x) => x.id === id)
+      if (opp) {
+        setFocus({ lat: opp.latitude, lng: opp.longitude, zoom: 15 })
+        setHighlightId(opp.id)
+        setSelected({ kind: "opportunity", id: opp.id })
+      }
     }
     // Only react to the initial query param resolution.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -261,77 +268,107 @@ function MapPageInner() {
               opportunities={filteredOpps}
               focus={focus}
               highlightId={highlightId}
-              onSelect={(kind, id) => setSelected({ kind, id })}
+              onSelect={(kind, id) => {
+                setHighlightId(null)
+                setSelected({ kind, id })
+              }}
             />
             <MapLegend />
           </div>
 
-          {filteredIncidents.length > 0 && (
-            <section>
-              <h2 className="mb-3 flex items-center gap-2 font-display text-xl font-semibold">
-                Incidents
-                <Badge variant="secondary" className="font-normal">
-                  {filteredIncidents.length}
-                </Badge>
-              </h2>
-              <div className="grid gap-4 lg:grid-cols-2">
-                {filteredIncidents.map((inc) => (
-                  <IncidentCard key={inc.id} incident={inc} onOpen={() => setSelected({ kind: "incident", id: inc.id })} />
-                ))}
-              </div>
-            </section>
-          )}
+          {layers.incidents &&
+            (filteredIncidents.length > 0 ? (
+              <section>
+                <h2 className="mb-3 flex items-center gap-2 font-display text-xl font-semibold">
+                  Incidents
+                  <Badge variant="secondary" className="font-normal">
+                    {filteredIncidents.length}
+                  </Badge>
+                </h2>
+                <div className="grid gap-4 lg:grid-cols-2">
+                  {filteredIncidents.map((inc) => (
+                    <IncidentCard key={inc.id} incident={inc} onOpen={() => setSelected({ kind: "incident", id: inc.id })} />
+                  ))}
+                </div>
+              </section>
+            ) : (
+              !allLayersOff &&
+              filteredReports.length + filteredOpps.length > 0 && (
+                <EmptyBlock
+                  title="No incidents found"
+                  body="Try changing your filters, expanding the distance, or selecting another category."
+                />
+              )
+            ))}
 
-          {filteredReports.length > 0 && (
-            <section>
-              <h2 className="mb-3 flex items-center gap-2 font-display text-xl font-semibold">
-                Reports
-                <Badge variant="secondary" className="font-normal">
-                  {filteredReports.length}
-                </Badge>
-              </h2>
-              <div className="grid gap-3 lg:grid-cols-2">
-                {filteredReports.map((r) => (
-                  <ReportCard key={r.id} report={r} onOpen={() => setSelected({ kind: "report", id: r.id })} />
-                ))}
-              </div>
-            </section>
-          )}
+          {layers.reports &&
+            (filteredReports.length > 0 ? (
+              <section>
+                <h2 className="mb-3 flex items-center gap-2 font-display text-xl font-semibold">
+                  Reports
+                  <Badge variant="secondary" className="font-normal">
+                    {filteredReports.length}
+                  </Badge>
+                </h2>
+                <div className="grid gap-3 lg:grid-cols-2">
+                  {filteredReports.map((r) => (
+                    <ReportCard key={r.id} report={r} onOpen={() => setSelected({ kind: "report", id: r.id })} />
+                  ))}
+                </div>
+              </section>
+            ) : (
+              !allLayersOff &&
+              filteredIncidents.length + filteredOpps.length > 0 && (
+                <EmptyBlock
+                  title="No reports found"
+                  body="Try changing your filters, expanding the distance, or selecting another category."
+                />
+              )
+            ))}
 
-          {filteredOpps.length > 0 && (
-            <section>
-              <h2 className="mb-3 flex items-center gap-2 font-display text-xl font-semibold">
-                Ways to help nearby
-                <Badge variant="secondary" className="font-normal">
-                  {filteredOpps.length}
-                </Badge>
-              </h2>
-              <div className="grid gap-4 lg:grid-cols-2">
-                {filteredOpps.map((o) => (
-                  <OpportunityCard key={o.id} opp={o} />
-                ))}
-              </div>
-            </section>
-          )}
+          {layers.opportunities &&
+            (filteredOpps.length > 0 ? (
+              <section>
+                <h2 className="mb-3 flex items-center gap-2 font-display text-xl font-semibold">
+                  Ways to help nearby
+                  <Badge variant="secondary" className="font-normal">
+                    {filteredOpps.length}
+                  </Badge>
+                </h2>
+                <div className="grid gap-4 lg:grid-cols-2">
+                  {filteredOpps.map((o) => (
+                    <OpportunityCard key={o.id} opp={o} onOpen={() => setSelected({ kind: "opportunity", id: o.id })} />
+                  ))}
+                </div>
+              </section>
+            ) : (
+              !allLayersOff &&
+              filteredReports.length + filteredIncidents.length > 0 && (
+                <EmptyBlock
+                  title="No opportunities found"
+                  body="Try expanding the distance or turning on another map layer."
+                />
+              )
+            ))}
 
           {filteredReports.length + filteredIncidents.length + filteredOpps.length === 0 &&
             (allLayersOff ? (
-              <div className="grid place-items-center rounded-3xl border border-dashed border-border py-16 text-center">
-                <EyeOff className="size-8 text-muted-foreground" />
-                <p className="mt-2 font-medium">All layers are turned off</p>
-                <p className="max-w-sm text-sm text-muted-foreground">
-                  Turn on the Reports, Incidents, or Volunteer opportunities layer to see items on the map and in the
-                  list.
-                </p>
-              </div>
+              <EmptyBlock
+                icon={EyeOff}
+                title="All layers are turned off"
+                body="Turn on the Reports, Incidents, or Volunteer opportunities layer to see items on the map and in the list."
+              />
             ) : (
-              <div className="grid place-items-center rounded-3xl border border-dashed border-border py-16 text-center">
-                <MapPin className="size-8 text-muted-foreground" />
-                <p className="mt-2 font-medium">No reports found</p>
-                <p className="max-w-sm text-sm text-muted-foreground">
-                  Try changing your filters, expanding the distance, or selecting another category.
-                </p>
-              </div>
+              <EmptyBlock
+                title={
+                  !layers.reports && layers.incidents
+                    ? "No incidents found"
+                    : !layers.reports && layers.opportunities
+                      ? "No opportunities found"
+                      : "No reports found"
+                }
+                body="Try changing your filters, expanding the distance, or selecting another category."
+              />
             ))}
         </div>
       </div>
@@ -353,6 +390,24 @@ function MapPageInner() {
         )}
         {selectedOpportunity && <OpportunityDetail opp={selectedOpportunity} />}
       </DetailPanel>
+    </div>
+  )
+}
+
+function EmptyBlock({
+  title,
+  body,
+  icon: Icon = MapPin,
+}: {
+  title: string
+  body: string
+  icon?: typeof MapPin
+}) {
+  return (
+    <div className="grid place-items-center rounded-3xl border border-dashed border-border py-16 text-center">
+      <Icon className="size-8 text-muted-foreground" />
+      <p className="mt-2 font-medium">{title}</p>
+      <p className="max-w-sm text-sm text-muted-foreground">{body}</p>
     </div>
   )
 }

@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react"
 import { Bookmark, HandHeart, SlidersHorizontal } from "lucide-react"
 import { OpportunityCard } from "@/components/opportunity-card"
+import { OpportunityDetail } from "@/components/opportunity-detail"
+import { DetailPanel } from "@/components/detail-panel"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/lib/store"
@@ -34,6 +36,8 @@ export default function HelpPage() {
   const [setting, setSetting] = useState<(typeof SETTINGS)[number]>("All")
   const [sort, setSort] = useState<(typeof SORTS)[number]["value"]>("distance")
   const [savedOnly, setSavedOnly] = useState(false)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const selected = volunteer.find((o) => o.id === selectedId)
 
   const list = useMemo(() => {
     let items = [...volunteer]
@@ -140,13 +144,16 @@ export default function HelpPage() {
       {list.length > 0 ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {list.map((o) => (
-            <OpportunityCard key={o.id} opp={o} />
+            <OpportunityCard key={o.id} opp={o} onOpen={() => setSelectedId(o.id)} />
           ))}
         </div>
       ) : (
-        <p className="rounded-3xl border border-dashed border-border p-12 text-center text-sm text-muted-foreground">
-          No opportunities match your filters yet.
-        </p>
+        <div className="rounded-3xl border border-dashed border-border p-12 text-center">
+          <p className="font-medium">No opportunities found</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Try changing your filters or selecting another cause.
+          </p>
+        </div>
       )}
 
       {/* Partner organizations */}
@@ -174,6 +181,10 @@ export default function HelpPage() {
           ))}
         </div>
       </section>
+
+      <DetailPanel open={Boolean(selected)} onClose={() => setSelectedId(null)} title="Opportunity">
+        {selected && <OpportunityDetail opp={selected} />}
+      </DetailPanel>
     </div>
   )
 }

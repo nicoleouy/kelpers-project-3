@@ -2,8 +2,10 @@
 
 import Link from "next/link"
 import { ArrowRight, Heart, Users } from "lucide-react"
+import { FollowButton } from "@/components/follow-button"
 import { OpportunityCard } from "@/components/opportunity-card"
 import { useStore } from "@/lib/store"
+import { COMMUNITY_MEMBERS } from "@/lib/mock-data"
 
 const GALLERY = [
   {
@@ -93,6 +95,32 @@ export default function CommunityPage() {
                 </p>
               </figcaption>
             </figure>
+          ))}
+        </div>
+      </section>
+
+      <section>
+        <h2 className="mb-4 font-display text-2xl font-semibold">People in the community</h2>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {COMMUNITY_MEMBERS.map((person) => (
+            <div
+              key={person.id}
+              className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm"
+            >
+              <span
+                className="grid size-11 shrink-0 place-items-center rounded-full text-sm font-semibold text-white"
+                style={{ backgroundColor: person.color }}
+              >
+                {person.name.charAt(0)}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-semibold">{person.name}</p>
+                <p className="truncate text-xs text-muted-foreground">
+                  {person.location} · {person.reports} reports · {person.cause}
+                </p>
+              </div>
+              <FollowButton userId={person.id} size="sm" />
+            </div>
           ))}
         </div>
       </section>
