@@ -16,7 +16,7 @@ export type { ReportForVerification, VerificationResult, VerificationStatus } fr
 
 // Vision + structured-output capable, fast and inexpensive — a good default for
 // an automated quality check.
-const MODEL = "gemini-2.5-flash"
+const MODEL = "gemini-3.8-flash"
 
 // Guardrails so this service can't be turned into an unbounded proxy / cost sink.
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024 // 8 MB
@@ -103,6 +103,51 @@ const responseSchema = {
 
 type InlineImage = { mimeType: string; data: string }
 
+const IMAGE_MIME_BY_EXT: Record<string, string> = {
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  webp: "image/webp",
+  gif: "image/gif",
+  avif: "image/avif",
+}
+
+/**
+ * Read a site-relative asset (served from `public`) directly off disk and return
+ * it as inline base64. Guards against path traversal so only files inside
+ * `public` can be read.
+ */
+async function loadPublicImage(sitePath: string): Promise<InlineImage | null> {
+  const { readFile } = await import("node:fs/promises")
+  const path = await import("node:path")
+
+  const publicDir = path.join(process.cwd(), "public")
+  // Strip query/hash, decode, and normalize to a path within `public`.
+  const cleanPath = decodeURIComponent(sitePath.split("?")[0].split("#")[0])
+  const absPath = path.normalize(path.join(publicDir, cleanPath))
+  if (absPath !== publicDir && !absPath.startsWith(publicDir + path.sep)) {
+    throw new VerificationError("image_fetch_failed", "Image path is outside the public directory.")
+  }
+
+  const ext = path.extname(absPath).slice(1).toLowerCase()
+  const mimeType = IMAGE_MIME_BY_EXT[ext]
+  if (!mimeType) {
+    // Unknown/unsupported asset type — treat as "no image" rather than failing.
+    return null
+  }
+
+  try {
+    const bytes = await readFile(absPath)
+    if (bytes.byteLength > MAX_IMAGE_BYTES) {
+      throw new VerificationError("image_fetch_failed", "Image exceeds the size limit.")
+    }
+    return { mimeType, data: bytes.toString("base64") }
+  } catch (err) {
+    if (err instanceof VerificationError) throw err
+    throw new VerificationError("image_fetch_failed", "Could not read the report image.")
+  }
+}
+
 /**
  * Turn an image reference into inline base64 data Gemini can read. Supports data
  * URLs and absolute http(s) URLs. Site-relative paths are NOT resolved here —
@@ -124,6 +169,14 @@ async function loadInlineImage(imageUrl: string | undefined): Promise<InlineImag
       throw new VerificationError("image_fetch_failed", "Data URL is not an image.")
     }
     return { mimeType, data }
+  }
+
+  // Site-relative path (e.g. "/reports/smoke.png") -> read straight from the
+  // local `public` directory. Fetching it over HTTP is unreliable behind the
+  // preview proxy, where the request origin is an external domain the sandbox
+  // can't reach back to.
+  if (imageUrl.startsWith("/")) {
+    return loadPublicImage(imageUrl)
   }
 
   if (!/^https?:\/\//i.test(imageUrl)) {
@@ -266,6 +319,67 @@ function parseAndValidate(rawText: string | undefined): VerificationResult {
 }
 
 // ---------------------------------------------------------------------------
+// Model call with retry
+// ---------------------------------------------------------------------------
+
+// Gemini periodically returns 503 (UNAVAILABLE, "high demand") or 429
+// (rate limited). These are transient, so retry a couple of times with
+// exponential backoff before surfacing a failure to the caller.
+const MAX_MODEL_ATTEMPTS = 3
+const RETRYABLE_STATUSES = new Set([429, 500, 503])
+
+function statusFromError(err: unknown): number | undefined {
+  if (err && typeof err === "object" && "status" in err) {
+    const status = (err as { status?: unknown }).status
+    if (typeof status === "number") return status
+  }
+  return undefined
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+async function generateWithRetry(
+  ai: GoogleGenAI,
+  parts: Array<{ text: string } | { inlineData: InlineImage }>,
+): Promise<string | undefined> {
+  let lastError: unknown
+  for (let attempt = 1; attempt <= MAX_MODEL_ATTEMPTS; attempt++) {
+    try {
+      const response = await ai.models.generateContent({
+        model: MODEL,
+        contents: [{ role: "user", parts }],
+        config: {
+          systemInstruction: SYSTEM_INSTRUCTION,
+          responseMimeType: "application/json",
+          responseSchema,
+          temperature: 0.2,
+        },
+      })
+      return response.text
+    } catch (err) {
+      lastError = err
+      const status = statusFromError(err)
+      const retryable = status !== undefined && RETRYABLE_STATUSES.has(status)
+      console.log(
+        `[v0] Gemini generateContent failed (attempt ${attempt}/${MAX_MODEL_ATTEMPTS}, status ${status ?? "unknown"}, retryable ${retryable}):`,
+        err instanceof Error ? err.message : err,
+      )
+      if (!retryable || attempt === MAX_MODEL_ATTEMPTS) break
+      // 400ms, 800ms backoff between attempts.
+      await sleep(400 * 2 ** (attempt - 1))
+    }
+  }
+
+  const status = statusFromError(lastError)
+  if (status === 429) {
+    throw new VerificationError("rate_limited", "The verification service is busy. Please retry shortly.")
+  }
+  throw new VerificationError("model_error", "The verification model could not be reached.")
+}
+
+// ---------------------------------------------------------------------------
 // Public service
 // ---------------------------------------------------------------------------
 
@@ -298,23 +412,6 @@ export async function verifyReport(
 
   const ai = new GoogleGenAI({ apiKey })
 
-  let text: string | undefined
-  try {
-    const response = await ai.models.generateContent({
-      model: MODEL,
-      contents: [{ role: "user", parts }],
-      config: {
-        systemInstruction: SYSTEM_INSTRUCTION,
-        responseMimeType: "application/json",
-        responseSchema,
-        temperature: 0.2,
-      },
-    })
-    text = response.text
-  } catch (err) {
-    console.log("[v0] Gemini generateContent failed:", err instanceof Error ? err.message : err)
-    throw new VerificationError("model_error", "The verification model could not be reached.")
-  }
-
+  const text = await generateWithRetry(ai, parts)
   return parseAndValidate(text)
 }

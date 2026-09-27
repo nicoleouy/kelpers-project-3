@@ -60,4 +60,5 @@ export type VerificationErrorCode =
   | "missing_api_key"
   | "image_fetch_failed"
   | "model_error"
+  | "rate_limited"
   | "invalid_model_output"

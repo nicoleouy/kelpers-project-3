@@ -47,31 +47,27 @@ function num(value: unknown): number | undefined {
 }
 
 /**
- * Resolve a site-relative image path (e.g. "/reports/water.png") to an absolute
- * URL using the incoming request's origin so the server-side service can fetch
- * it. Absolute URLs and data URLs are returned unchanged.
+ * Normalize an incoming image reference. Data URLs and absolute http(s) URLs are
+ * passed through unchanged. Site-relative paths (e.g. "/reports/water.png") are
+ * kept as-is and read from the local `public` directory by the service — we do
+ * NOT rewrite them to an absolute URL, because behind the preview proxy the
+ * request origin is an external domain the sandbox can't fetch back from.
  */
-function resolveImageUrl(imageUrl: string | undefined, request: Request): string | undefined {
+function normalizeImageUrl(imageUrl: string | undefined): string | undefined {
   if (!imageUrl) return undefined
   if (imageUrl.startsWith("data:") || /^https?:\/\//i.test(imageUrl)) return imageUrl
-  if (imageUrl.startsWith("/")) {
-    try {
-      return new URL(imageUrl, new URL(request.url).origin).toString()
-    } catch {
-      return undefined
-    }
-  }
+  if (imageUrl.startsWith("/")) return imageUrl
   return undefined
 }
 
-function parseReport(input: Record<string, unknown>, request: Request): ReportForVerification | null {
+function parseReport(input: Record<string, unknown>): ReportForVerification | null {
   const category = str(input.category, MAX_CATEGORY_LEN)
   if (!category) return null
   return {
     id: str(input.id, 200),
     category,
     description: str(input.description, MAX_DESCRIPTION_LEN),
-    imageUrl: resolveImageUrl(str(input.imageUrl, MAX_IMAGE_URL_LEN), request),
+    imageUrl: normalizeImageUrl(str(input.imageUrl, MAX_IMAGE_URL_LEN)),
     latitude: num(input.latitude),
     longitude: num(input.longitude),
     reportedAt: str(input.reportedAt, MAX_LOCATION_LEN),
@@ -93,7 +89,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 })
   }
 
-  const report = parseReport(body, request)
+  const report = parseReport(body)
   if (!report) {
     return NextResponse.json({ error: "A report with a 'category' is required." }, { status: 400 })
   }
@@ -102,7 +98,7 @@ export async function POST(request: Request) {
   if (Array.isArray(body.relatedReports)) {
     relatedReports = body.relatedReports
       .slice(0, MAX_RELATED_REPORTS)
-      .map((r) => (typeof r === "object" && r !== null ? parseReport(r as Record<string, unknown>, request) : null))
+      .map((r) => (typeof r === "object" && r !== null ? parseReport(r as Record<string, unknown>) : null))
       .filter((r): r is ReportForVerification => r !== null)
   }
 
@@ -129,6 +125,11 @@ export async function POST(request: Request) {
           return NextResponse.json(
             { error: "The verification result was unreadable. Please retry.", code: error.code },
             { status: 502 },
+          )
+        case "rate_limited":
+          return NextResponse.json(
+            { error: "The verification service is busy. Please retry shortly.", code: error.code },
+            { status: 429 },
           )
         case "model_error":
         default:
