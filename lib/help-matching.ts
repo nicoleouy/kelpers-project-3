@@ -49,7 +49,12 @@ export function matchOpportunity(
 
   const matches = opportunities
     .filter((o) => o.categories.some((c) => causes.includes(c)))
-    .sort((a, b) => haversineMiles(target, a) - haversineMiles(target, b))
+    .sort((a, b) => {
+      const score = (o: VolunteerOpportunity) => o.categories.filter((c) => causes.includes(c)).length
+      const byCause = score(b) - score(a)
+      if (byCause !== 0) return byCause
+      return haversineMiles(target, a) - haversineMiles(target, b)
+    })
 
   return matches[0] ?? null
 }

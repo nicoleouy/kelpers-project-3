@@ -2,6 +2,7 @@
 
 import { ArrowRight, CalendarDays, Check, HandHeart, MapPin, Sparkles, Tag, Users } from "lucide-react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { CategoryIcon } from "@/components/category-icon"
 import { SeverityBadge } from "@/components/severity-badge"
 import { FollowButton } from "@/components/follow-button"
@@ -24,6 +25,7 @@ export function ReportDetail({
   onOpenIncident?: (incidentId: string) => void
   onOpenOpportunity?: (opportunityId: string) => void
 }) {
+  const router = useRouter()
   const { confirmReport, incidents, volunteer } = useStore()
   const meta = categoryMeta(report.category)
   const incident = report.incidentId ? incidents.find((i) => i.id === report.incidentId) : undefined
@@ -139,7 +141,10 @@ export function ReportDetail({
           {match ? (
             <button
               type="button"
-              onClick={() => onOpenOpportunity?.(match.id)}
+              onClick={() => {
+                if (onOpenOpportunity) onOpenOpportunity(match.id)
+                else router.push(`/map?focus=opportunity:${match.id}`)
+              }}
               className="flex w-full items-center gap-3 rounded-2xl border border-primary/25 bg-primary/5 p-3 text-left transition-colors hover:bg-primary/10"
             >
               <span className="grid size-9 shrink-0 place-items-center rounded-full bg-primary/15 text-primary">

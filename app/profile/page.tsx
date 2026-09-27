@@ -13,6 +13,7 @@ import {
   MapPin,
   Settings,
 } from "lucide-react"
+import { FollowButton } from "@/components/follow-button"
 import { OpportunityCard } from "@/components/opportunity-card"
 import { ReportCard } from "@/components/report-card"
 import { ReportDetail } from "@/components/report-detail"
@@ -20,7 +21,7 @@ import { DetailPanel } from "@/components/detail-panel"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/lib/store"
-import { CURRENT_USER } from "@/lib/mock-data"
+import { COMMUNITY_MEMBERS, CURRENT_USER } from "@/lib/mock-data"
 
 const ACTIVITY_META = {
   report: { icon: Camera, color: "#a16207" },
@@ -38,7 +39,7 @@ const BADGES = [
 const TABS = ["Activity", "My reports", "Registered", "Saved"] as const
 
 export default function ProfilePage() {
-  const { reports, volunteer, activity } = useStore()
+  const { reports, volunteer, activity, following } = useStore()
   const [tab, setTab] = useState<(typeof TABS)[number]>("Activity")
   const [selectedReport, setSelectedReport] = useState<string | null>(null)
 
@@ -46,11 +47,12 @@ export default function ProfilePage() {
   const registered = useMemo(() => volunteer.filter((v) => v.registeredByMe), [volunteer])
   const saved = useMemo(() => volunteer.filter((v) => v.savedByMe), [volunteer])
 
+  const followingPeople = COMMUNITY_MEMBERS.filter((m) => following.includes(m.id))
   const stats = [
     { label: "Reports", value: myReports.length },
     { label: "Volunteered", value: activity.filter((a) => a.type === "volunteer").length },
     { label: "Confirmations", value: activity.filter((a) => a.type === "action").length },
-    { label: "Badges", value: BADGES.filter((b) => b.earned).length },
+    { label: "Following", value: following.length },
   ]
 
   const activeReport = reports.find((r) => r.id === selectedReport)
@@ -85,11 +87,11 @@ export default function ProfilePage() {
           </button>
         </div>
 
-        <div className="mt-6 grid grid-cols-4 gap-3">
+        <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {stats.map((s) => (
-            <div key={s.label} className="rounded-2xl bg-card/70 p-3 text-center backdrop-blur">
-              <p className="font-display text-2xl font-semibold">{s.value}</p>
-              <p className="text-xs text-muted-foreground">{s.label}</p>
+            <div key={s.label} className="min-w-0 rounded-2xl bg-card/70 px-2 py-3 text-center backdrop-blur">
+              <p className="font-display text-2xl font-semibold tabular-nums">{s.value}</p>
+              <p className="break-words text-pretty text-xs leading-snug text-muted-foreground">{s.label}</p>
             </div>
           ))}
         </div>
@@ -117,12 +119,40 @@ export default function ProfilePage() {
                 >
                   <Icon className="size-5" />
                 </span>
-                <span className="text-xs font-semibold">{b.label}</span>
+                <span className="text-pretty text-xs font-semibold leading-snug">{b.label}</span>
               </div>
             )
           })}
         </div>
       </section>
+
+      {followingPeople.length > 0 && (
+        <section>
+          <h2 className="mb-3 font-display text-lg font-semibold">People you follow</h2>
+          <ul className="grid gap-3 sm:grid-cols-2">
+            {followingPeople.map((person) => (
+              <li
+                key={person.id}
+                className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3 shadow-sm"
+              >
+                <span
+                  className="grid size-10 shrink-0 place-items-center rounded-full text-sm font-semibold text-white"
+                  style={{ backgroundColor: person.color }}
+                >
+                  {person.name.charAt(0)}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold">{person.name}</p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {person.location} · {person.cause}
+                  </p>
+                </div>
+                <FollowButton userId={person.id} size="sm" />
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {/* Tabs */}
       <section>

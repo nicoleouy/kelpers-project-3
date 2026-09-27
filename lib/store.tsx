@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useMemo, useState, type ReactNode } from "react"
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
 import {
   IMPACT_STATS,
   PROFILE_ACTIVITY,
@@ -19,6 +19,28 @@ import type {
 } from "./types"
 
 type ViewMode = "community" | "organization"
+
+const VIEW_MODE_KEY = "kelpers-view-mode"
+const FOLLOWING_KEY = "kelpers-following"
+
+function readSession<T>(key: string, fallback: T, parse: (raw: string) => T | null): T {
+  if (typeof window === "undefined") return fallback
+  try {
+    const raw = sessionStorage.getItem(key)
+    if (!raw) return fallback
+    return parse(raw) ?? fallback
+  } catch {
+    return fallback
+  }
+}
+
+function writeSession(key: string, value: string) {
+  try {
+    sessionStorage.setItem(key, value)
+  } catch {
+    // Ignore quota / private-mode failures.
+  }
+}
 
 interface StoreValue {
   reports: Report[]
@@ -56,8 +78,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [volunteer, setVolunteer] = useState<VolunteerOpportunity[]>(SEED_VOLUNTEER)
   const [research, setResearch] = useState<ResearchRequest[]>(SEED_RESEARCH)
   const [activity, setActivity] = useState<ProfileActivity[]>(PROFILE_ACTIVITY)
-  const [viewMode, setViewMode] = useState<ViewMode>("community")
+  const [viewMode, setViewModeState] = useState<ViewMode>("community")
   const [following, setFollowing] = useState<string[]>(["u-312"])
+
+  useEffect(() => {
+    setViewModeState(readSession(VIEW_MODE_KEY, "community", (raw) => (raw === "organization" || raw === "community" ? raw : null)))
+    setFollowing(
+      readSession(FOLLOWING_KEY, ["u-312"], (raw) => {
+        const parsed = JSON.parse(raw) as unknown
+        return Array.isArray(parsed) && parsed.every((id) => typeof id === "string") ? parsed : null
+      }),
+    )
+  }, [])
+
+  const setViewMode = useCallback((mode: ViewMode) => {
+    setViewModeState(mode)
+    writeSession(VIEW_MODE_KEY, mode)
+  }, [])
 
   const value = useMemo<StoreValue>(() => {
     const addReport: StoreValue["addReport"] = (input) => {
@@ -148,7 +185,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
 
     const toggleFollow: StoreValue["toggleFollow"] = (userId) => {
-      setFollowing((prev) => (prev.includes(userId) ? prev.filter((id) => id !== userId) : [userId, ...prev]))
+      if (!userId || userId === CURRENT_USER.id) return
+      setFollowing((prev) => {
+        const next = prev.includes(userId) ? prev.filter((id) => id !== userId) : [userId, ...prev]
+        writeSession(FOLLOWING_KEY, JSON.stringify(next))
+        return next
+      })
     }
 
     return {
@@ -170,7 +212,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       respondToIncident,
       observationCount: IMPACT_STATS.observationsThisMonth + Math.max(0, reports.length - SEED_REPORTS.length),
     }
-  }, [reports, incidents, volunteer, research, activity, viewMode, following])
+  }, [reports, incidents, volunteer, research, activity, viewMode, following, setViewMode])
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>
 }

@@ -66,7 +66,7 @@ function buildIcon(point: MapPoint, highlighted: boolean) {
     const html = renderToStaticMarkup(<CategoryIcon name="HeartPulse" />)
     const size = 32
     return L.divIcon({
-      className: "",
+      className: "eco-leaflet-icon",
       html: `<div class="eco-marker eco-marker-opportunity${hi}" style="width:${size}px;height:${size}px;background:#16a34a;position:relative;">${html}</div>`,
       iconSize: [size, size],
       iconAnchor: [size / 2, size / 2],
@@ -84,7 +84,7 @@ function buildIcon(point: MapPoint, highlighted: boolean) {
       : ""
 
   return L.divIcon({
-    className: "",
+    className: "eco-leaflet-icon",
     html: `<div class="eco-marker${pulse}${hi}" style="width:${base}px;height:${base}px;background:${meta.color};position:relative;">${html}${badge}</div>`,
     iconSize: [base, base],
     iconAnchor: [base / 2, base / 2],

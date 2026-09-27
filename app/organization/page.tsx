@@ -1,11 +1,13 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
+import { useRouter } from "next/navigation"
 import { Building2, Check, ClipboardList, Plus, TrendingUp, Users } from "lucide-react"
 import { IncidentCard } from "@/components/incident-card"
 import { IncidentDetail } from "@/components/incident-detail"
 import { ReportDetail } from "@/components/report-detail"
 import { OpportunityCard } from "@/components/opportunity-card"
+import { OpportunityDetail } from "@/components/opportunity-detail"
 import { DetailPanel } from "@/components/detail-panel"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -17,9 +19,14 @@ const ORG = ORGANIZATIONS[1] // Trees Atlanta as the signed-in org
 const CAUSE_OPTIONS: CauseTag[] = ["Litter", "Water", "Wildlife", "Trees", "Conservation", "Climate", "Community", "Education"]
 
 export default function OrganizationPage() {
+  const router = useRouter()
   const { incidents, volunteer, reports, addVolunteer, setViewMode } = useStore()
-  const [selected, setSelected] = useState<{ kind: "report" | "incident"; id: string } | null>(null)
+  const [selected, setSelected] = useState<{ kind: "report" | "incident" | "opportunity"; id: string } | null>(null)
   const [showForm, setShowForm] = useState(false)
+
+  useEffect(() => {
+    setViewMode("organization")
+  }, [setViewMode])
 
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
@@ -38,6 +45,8 @@ export default function OrganizationPage() {
 
   const selectedReport = selected?.kind === "report" ? reports.find((r) => r.id === selected.id) : undefined
   const selectedIncident = selected?.kind === "incident" ? incidents.find((i) => i.id === selected.id) : undefined
+  const selectedOpportunity =
+    selected?.kind === "opportunity" ? volunteer.find((o) => o.id === selected.id) : undefined
 
   const toggleCause = (c: CauseTag) =>
     setCauses((prev) => (prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c]))
@@ -94,7 +103,10 @@ export default function OrganizationPage() {
           </div>
           <button
             type="button"
-            onClick={() => setViewMode("community")}
+            onClick={() => {
+              setViewMode("community")
+              router.push("/")
+            }}
             className="self-start rounded-full border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground"
           >
             Switch to community view
@@ -241,14 +253,23 @@ export default function OrganizationPage() {
       <DetailPanel
         open={Boolean(selected)}
         onClose={() => setSelected(null)}
-        title={selectedIncident ? "Incident" : "Report"}
+        title={selectedIncident ? "Incident" : selected?.kind === "opportunity" ? "Opportunity" : "Report"}
       >
         {selectedReport && (
-          <ReportDetail report={selectedReport} onOpenIncident={(id) => setSelected({ kind: "incident", id })} />
+          <ReportDetail
+            report={selectedReport}
+            onOpenIncident={(id) => setSelected({ kind: "incident", id })}
+            onOpenOpportunity={(id) => setSelected({ kind: "opportunity", id })}
+          />
         )}
         {selectedIncident && (
-          <IncidentDetail incident={selectedIncident} onOpenReport={(id) => setSelected({ kind: "report", id })} />
+          <IncidentDetail
+            incident={selectedIncident}
+            onOpenReport={(id) => setSelected({ kind: "report", id })}
+            onOpenOpportunity={(id) => setSelected({ kind: "opportunity", id })}
+          />
         )}
+        {selectedOpportunity && <OpportunityDetail opp={selectedOpportunity} />}
       </DetailPanel>
     </div>
   )

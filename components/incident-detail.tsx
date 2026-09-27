@@ -2,6 +2,7 @@
 
 import { ArrowDown, ArrowRight, CalendarDays, HandHeart, MapPin, Radio, Sparkles } from "lucide-react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { CategoryIcon } from "@/components/category-icon"
 import { SeverityBadge } from "@/components/severity-badge"
 import { ReportCard } from "@/components/report-card"
@@ -23,6 +24,7 @@ export function IncidentDetail({
   onOpenReport?: (reportId: string) => void
   onOpenOpportunity?: (opportunityId: string) => void
 }) {
+  const router = useRouter()
   const { reports, viewMode, respondToIncident, volunteer } = useStore()
   const meta = categoryMeta(incident.category)
   const memberReports = incident.reportIds
@@ -113,12 +115,15 @@ export function IncidentDetail({
           <HandHeart className="size-4 text-primary" />
           How you can help
         </p>
-        {match ? (
-          <button
-            type="button"
-            onClick={() => onOpenOpportunity?.(match.id)}
-            className="flex w-full items-center gap-3 rounded-2xl border border-primary/25 bg-primary/5 p-3 text-left transition-colors hover:bg-primary/10"
-          >
+          {match ? (
+            <button
+              type="button"
+              onClick={() => {
+                if (onOpenOpportunity) onOpenOpportunity(match.id)
+                else router.push(`/map?focus=opportunity:${match.id}`)
+              }}
+              className="flex w-full items-center gap-3 rounded-2xl border border-primary/25 bg-primary/5 p-3 text-left transition-colors hover:bg-primary/10"
+            >
             <span className="grid size-9 shrink-0 place-items-center rounded-full bg-primary/15 text-primary">
               <CategoryIcon name="HeartPulse" className="size-4" />
             </span>
