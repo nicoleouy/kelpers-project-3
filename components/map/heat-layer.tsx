@@ -23,7 +23,7 @@ const heatLayer = (L as unknown as { heatLayer: (points: HeatCell[], o: HeatLaye
 
 // Light → dark as report density rises.
 export const HEAT_GRADIENTS: Record<HeatmapCategory, Record<number, string>> = {
-  community: { 0.2: "#d9f99d", 0.45: "#65a30d", 0.7: "#3f6212", 1: "#1a2e05" },
+  community: { 0.2: "#e9d5ff", 0.45: "#a855f7", 0.7: "#7e22ce", 1: "#3b0764" },
   crisis: { 0.2: "#fecaca", 0.45: "#ef4444", 0.7: "#b91c1c", 1: "#450a0a" },
 }
 
