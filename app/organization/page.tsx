@@ -45,6 +45,8 @@ export default function OrganizationPage() {
 
   const selectedReport = selected?.kind === "report" ? reports.find((r) => r.id === selected.id) : undefined
   const selectedIncident = selected?.kind === "incident" ? incidents.find((i) => i.id === selected.id) : undefined
+  const selectedOpportunity =
+    selected?.kind === "opportunity" ? volunteer.find((o) => o.id === selected.id) : undefined
 
   const toggleCause = (c: CauseTag) =>
     setCauses((prev) => (prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c]))
@@ -267,9 +269,7 @@ export default function OrganizationPage() {
             onOpenOpportunity={(id) => setSelected({ kind: "opportunity", id })}
           />
         )}
-        {selected?.kind === "opportunity" && volunteer.find((o) => o.id === selected.id) && (
-          <OpportunityDetail opp={volunteer.find((o) => o.id === selected.id)!} />
-        )}
+        {selectedOpportunity && <OpportunityDetail opp={selectedOpportunity} />}
       </DetailPanel>
     </div>
   )
