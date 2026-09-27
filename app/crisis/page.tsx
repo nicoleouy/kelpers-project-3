@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { AlertTriangle, Check, Phone, Radio, ShieldAlert } from "lucide-react"
+import { AlertTriangle, Check, Loader2, Phone, Radio, ShieldAlert } from "lucide-react"
 import { CategoryIcon } from "@/components/category-icon"
 import { IncidentCard } from "@/components/incident-card"
 import { IncidentDetail } from "@/components/incident-detail"
@@ -36,10 +36,12 @@ const SAFETY_TIPS = [
 ]
 
 export default function CrisisPage() {
-  const { incidents, reports, addReport } = useStore()
+  const { incidents, reports, submitReport } = useStore()
   const [category, setCategory] = useState<CategoryId>("smoke-fire")
   const [description, setDescription] = useState("")
   const [submitted, setSubmitted] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
   const [selected, setSelected] = useState<{ kind: "report" | "incident"; id: string } | null>(null)
 
   const activeCrises = useMemo(
@@ -50,8 +52,11 @@ export default function CrisisPage() {
   const selectedReport = selected?.kind === "report" ? reports.find((r) => r.id === selected.id) : undefined
   const selectedIncident = selected?.kind === "incident" ? incidents.find((i) => i.id === selected.id) : undefined
 
-  const submit = () => {
-    addReport({
+  const submit = async () => {
+    if (submitting) return
+    setSubmitting(true)
+    setSubmitError(null)
+    const result = await submitReport({
       category,
       tags: ["crisis"],
       description: description.trim() || `Urgent ${categoryMeta(category).label.toLowerCase()} reported`,
@@ -61,6 +66,11 @@ export default function CrisisPage() {
       severity: "severe",
       isCrisis: true,
     })
+    setSubmitting(false)
+    if (!result.ok) {
+      setSubmitError(result.error)
+      return
+    }
     setSubmitted(true)
     setDescription("")
   }
@@ -170,12 +180,19 @@ export default function CrisisPage() {
                 placeholder="Describe the situation and any immediate dangers..."
                 className="mt-4 w-full resize-none rounded-2xl border border-border bg-card px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-crisis/40"
               />
+              {submitError && (
+                <p role="alert" className="mt-4 rounded-2xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+                  {submitError} Your report was not saved.
+                </p>
+              )}
               <Button
                 onClick={submit}
+                disabled={submitting}
+                aria-busy={submitting}
                 className="mt-4 w-full bg-crisis text-crisis-foreground hover:bg-crisis/90"
               >
-                <Radio className="size-4" />
-                Submit crisis report
+                {submitting ? <Loader2 className="size-4 animate-spin" /> : <Radio className="size-4" />}
+                {submitting ? "Verifying & saving…" : "Submit crisis report"}
               </Button>
             </>
           )}
