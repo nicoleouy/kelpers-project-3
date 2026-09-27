@@ -3,6 +3,9 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  outputFileTracingIncludes: {
+    "/api/verify-report": ["./public/reports/**/*"],
+  },
   allowedDevOrigins: ["127.0.0.1", "localhost", "172.30.0.2", "0.0.0.0"],
   async headers() {
     return [

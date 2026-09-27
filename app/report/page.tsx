@@ -19,6 +19,7 @@ import {
 import { CategoryIcon } from "@/components/category-icon"
 import { SeverityBadge } from "@/components/severity-badge"
 import { ListenButton } from "@/components/listen-button"
+import { VerificationPanel } from "@/components/verification-status"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -48,7 +49,9 @@ type LocationState = {
 
 export default function ReportPage() {
   const router = useRouter()
-  const { addReport } = useStore()
+  const { submitReport, runVerification, verifications } = useStore()
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
   const [step, setStep] = useState(0)
   const [image, setImage] = useState<string | undefined>()
   const [group, setGroup] = useState<string>(CATEGORY_GROUPS[0])
@@ -133,9 +136,11 @@ export default function ReportPage() {
     })
   }
 
-  const submit = () => {
-    if (!category || !hasLocation) return
-    const report = addReport({
+  const submit = async () => {
+    if (!category || !hasLocation || submitting) return
+    setSubmitting(true)
+    setSubmitError(null)
+    const result = await submitReport({
       category,
       tags,
       description: description.trim(),
@@ -145,7 +150,9 @@ export default function ReportPage() {
       approximateLocation: location.label,
       severity,
     })
-    setSubmitted(report)
+    setSubmitting(false)
+    if (result.ok) setSubmitted(result.report)
+    else setSubmitError(result.error)
   }
 
   if (submitted) {
@@ -197,6 +204,13 @@ export default function ReportPage() {
               </p>
             </div>
           )}
+
+          <div className="mt-4">
+            <VerificationPanel
+              verification={verifications[submitted.id]}
+              onRun={() => runVerification(submitted)}
+            />
+          </div>
 
           <div className="mt-4 border-t border-border pt-3">
             <ListenButton
@@ -579,6 +593,12 @@ export default function ReportPage() {
         )}
       </div>
 
+      {submitError && step === STEPS.length - 1 && (
+        <p role="alert" className="mt-4 rounded-2xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          {submitError} Your report was not saved.
+        </p>
+      )}
+
       {/* Nav */}
       <div className="mt-6 flex items-center justify-between">
         <button
@@ -596,9 +616,9 @@ export default function ReportPage() {
             <ArrowRight className="size-4" />
           </Button>
         ) : (
-          <Button onClick={submit}>
-            <Check className="size-4" />
-            Submit report
+          <Button onClick={submit} disabled={submitting} aria-busy={submitting}>
+            {submitting ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
+            {submitting ? "Verifying & saving…" : "Submit report"}
           </Button>
         )}
       </div>

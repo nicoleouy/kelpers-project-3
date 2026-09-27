@@ -17,6 +17,19 @@ import type {
   ResearchRequest,
   VolunteerOpportunity,
 } from "./types"
+import useSWR from "swr"
+import { requestVerification, type VerificationState } from "./verification/client"
+import { createReport, fetchReports } from "./reports/client"
+
+export type NewReport = Omit<Report, "id" | "createdAt" | "confirmationCount" | "userId" | "userName">
+export type SubmitReportResult = { ok: true; report: Report } | { ok: false; error: string }
+
+function mergeReports(persisted: Report[], current: Report[]): Report[] {
+  const byId = new Map(current.map((r) => [r.id, r]))
+  const persistedIds = new Set(persisted.map((r) => r.id))
+  const merged = [...persisted.map((r) => byId.get(r.id) ?? r), ...current.filter((r) => !persistedIds.has(r.id))]
+  return merged.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+}
 
 type ViewMode = "community" | "organization"
 
@@ -52,7 +65,8 @@ interface StoreValue {
   setViewMode: (m: ViewMode) => void
   following: string[]
   toggleFollow: (userId: string) => void
-  addReport: (r: Omit<Report, "id" | "createdAt" | "confirmationCount" | "userId" | "userName">) => Report
+  /** Verifies with Gemini, persists via POST /api/reports, and only then adds the report to UI state. */
+  submitReport: (r: NewReport) => Promise<SubmitReportResult>
   confirmReport: (id: string) => void
   toggleRegister: (id: string) => void
   toggleSave: (id: string) => void
@@ -60,6 +74,25 @@ interface StoreValue {
   addResearch: (r: Omit<ResearchRequest, "id" | "createdAt" | "status">) => void
   respondToIncident: (id: string) => void
   observationCount: number
+  verifications: Record<string, VerificationState>
+  runVerification: (report: Report) => void
+}
+
+const RELATED_WINDOW_MS = 48 * 3_600_000
+const RELATED_DEGREES = 0.05
+
+function findRelatedReports(report: Report, all: Report[]): Report[] {
+  const t = Date.parse(report.createdAt)
+  return all
+    .filter(
+      (r) =>
+        r.id !== report.id &&
+        r.category === report.category &&
+        Math.abs(r.latitude - report.latitude) < RELATED_DEGREES &&
+        Math.abs(r.longitude - report.longitude) < RELATED_DEGREES &&
+        Math.abs(Date.parse(r.createdAt) - t) < RELATED_WINDOW_MS,
+    )
+    .slice(0, 10)
 }
 
 const StoreContext = createContext<StoreValue | null>(null)
@@ -80,6 +113,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [activity, setActivity] = useState<ProfileActivity[]>(PROFILE_ACTIVITY)
   const [viewMode, setViewModeState] = useState<ViewMode>("community")
   const [following, setFollowing] = useState<string[]>(["u-312"])
+  const [verifications, setVerifications] = useState<Record<string, VerificationState>>({})
+
+  useSWR("/api/reports", fetchReports, {
+    revalidateOnFocus: false,
+    onSuccess: (persisted) => setReports((prev) => mergeReports(persisted, prev)),
+    onError: (err: Error) => console.error("[store] Failed to load persisted reports:", err.message),
+  })
+
+  // Runs independently of report submission: a failure only updates verification state, never the report.
+  const runVerification = useCallback(
+    (report: Report) => {
+      setVerifications((prev) => ({ ...prev, [report.id]: { state: "pending" } }))
+      const related = findRelatedReports(report, reports)
+      void requestVerification(report, related).then((next) => {
+        setVerifications((prev) => ({ ...prev, [report.id]: next }))
+      })
+    },
+    [reports],
+  )
 
   useEffect(() => {
     setViewModeState(readSession(VIEW_MODE_KEY, "community", (raw) => (raw === "organization" || raw === "community" ? raw : null)))
@@ -97,19 +149,40 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const value = useMemo<StoreValue>(() => {
-    const addReport: StoreValue["addReport"] = (input) => {
-      const id = `r-${Math.random().toString(36).slice(2, 9)}`
-      const incidentId = input.incidentId ?? findRelatedIncidentId(input, incidents)
-      const report: Report = {
+    const submitReport: StoreValue["submitReport"] = async (input) => {
+      const draft: Report = {
         ...input,
-        incidentId,
-        id,
+        id: `draft-${Math.random().toString(36).slice(2, 9)}`,
         userId: CURRENT_USER.id,
         userName: CURRENT_USER.name,
         createdAt: new Date().toISOString(),
         confirmationCount: 0,
       }
-      setReports((prev) => [report, ...prev])
+      const verification = await requestVerification(draft, findRelatedReports(draft, reports))
+
+      const saved = await createReport({
+        category: input.category,
+        description: input.description,
+        severity: input.severity,
+        latitude: input.latitude,
+        longitude: input.longitude,
+        tags: input.tags,
+        image: input.image,
+        approximateLocation: input.approximateLocation,
+        isCrisis: input.isCrisis,
+      })
+      if (!saved.ok) return { ok: false, error: saved.error }
+
+      const incidentId = input.incidentId ?? findRelatedIncidentId(saved.report, incidents)
+      const report: Report = { ...saved.report, incidentId }
+      commitReport(report)
+      setVerifications((prev) => ({ ...prev, [report.id]: verification }))
+      return { ok: true, report }
+    }
+
+    const commitReport = (report: Report) => {
+      const { id, incidentId } = report
+      setReports((prev) => [report, ...prev.filter((r) => r.id !== id)])
       if (incidentId) {
         setIncidents((prev) =>
           prev.map((inc) =>
@@ -122,14 +195,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setActivity((prev) => [
         {
           id: `act-${id}`,
-          type: input.isCrisis ? "action" : "report",
-          label: input.isCrisis ? "Reported a crisis" : "Submitted a report",
-          location: input.approximateLocation,
+          type: report.isCrisis ? "action" : "report",
+          label: report.isCrisis ? "Reported a crisis" : "Submitted a report",
+          location: report.approximateLocation,
           date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }),
         },
         ...prev,
       ])
-      return report
     }
 
     const confirmReport: StoreValue["confirmReport"] = (id) => {
@@ -203,7 +275,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setViewMode,
       following,
       toggleFollow,
-      addReport,
+      submitReport,
       confirmReport,
       toggleRegister,
       toggleSave,
@@ -211,8 +283,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addResearch,
       respondToIncident,
       observationCount: IMPACT_STATS.observationsThisMonth + Math.max(0, reports.length - SEED_REPORTS.length),
+      verifications,
+      runVerification,
     }
-  }, [reports, incidents, volunteer, research, activity, viewMode, following, setViewMode])
+  }, [reports, incidents, volunteer, research, activity, viewMode, following, setViewMode, verifications, runVerification])
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>
 }

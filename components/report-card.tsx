@@ -6,10 +6,13 @@ import { SeverityBadge } from "@/components/severity-badge"
 import { Badge } from "@/components/ui/badge"
 import { categoryMeta } from "@/lib/categories"
 import { relativeTime } from "@/lib/format"
+import { useStore } from "@/lib/store"
 import type { Report } from "@/lib/types"
+import { VerificationBadge } from "@/components/verification-status"
 
 export function ReportCard({ report, onOpen }: { report: Report; onOpen?: () => void }) {
   const meta = categoryMeta(report.category)
+  const { verifications } = useStore()
   return (
     <button
       type="button"
@@ -65,6 +68,7 @@ export function ReportCard({ report, onOpen }: { report: Report; onOpen?: () => 
               Part of an incident
             </Badge>
           )}
+          <VerificationBadge verification={verifications[report.id]} />
         </div>
       </div>
     </button>

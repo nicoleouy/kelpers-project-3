@@ -7,6 +7,7 @@ import { CategoryIcon } from "@/components/category-icon"
 import { SeverityBadge } from "@/components/severity-badge"
 import { FollowButton } from "@/components/follow-button"
 import { ListenButton } from "@/components/listen-button"
+import { VerificationBadge, VerificationPanel } from "@/components/verification-status"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { categoryMeta } from "@/lib/categories"
@@ -26,7 +27,8 @@ export function ReportDetail({
   onOpenOpportunity?: (opportunityId: string) => void
 }) {
   const router = useRouter()
-  const { confirmReport, incidents, volunteer } = useStore()
+  const { confirmReport, incidents, volunteer, verifications, runVerification } = useStore()
+  const verification = verifications[report.id]
   const meta = categoryMeta(report.category)
   const incident = report.incidentId ? incidents.find((i) => i.id === report.incidentId) : undefined
   const match = matchOpportunity(report, volunteer)
@@ -64,6 +66,7 @@ export function ReportDetail({
         <div className="flex flex-wrap items-center gap-3">
           <SeverityBadge severity={report.severity} />
           {report.isCrisis && <Badge variant="crisis">Crisis report</Badge>}
+          <VerificationBadge verification={verification} />
           <ListenButton text={speech} label="Listen" size="sm" className="ml-auto" />
         </div>
 
@@ -114,6 +117,8 @@ export function ReportDetail({
             </div>
           )}
         </dl>
+
+        <VerificationPanel verification={verification} onRun={() => runVerification(report)} />
 
         {incident && (
           <button
