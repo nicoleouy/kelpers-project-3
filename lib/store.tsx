@@ -52,7 +52,7 @@ interface StoreValue {
   setViewMode: (m: ViewMode) => void
   following: string[]
   toggleFollow: (userId: string) => void
-  addReport: (r: Omit<Report, "id" | "createdAt" | "confirmationCount" | "userId" | "userName">) => Report
+  addReport: (r: Omit<Report, "id" | "createdAt" | "confirmationCount" | "userId" | "userName">) => Promise<Report>
   confirmReport: (id: string) => void
   toggleRegister: (id: string) => void
   toggleSave: (id: string) => void
@@ -91,24 +91,67 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     )
   }, [])
 
+  // Load persisted reports from Tiger Data and merge them with the seeded demo
+  // reports (deduped by id) so the map, lists, and details show real data.
+  useEffect(() => {
+    let cancelled = false
+    async function loadReports() {
+      try {
+        const res = await fetch("/api/reports")
+        if (!res.ok) return
+        const dbReports = (await res.json()) as Report[]
+        if (cancelled || !Array.isArray(dbReports)) return
+        setReports((prev) => {
+          const seedReports = prev.filter((r) => SEED_REPORTS.some((s) => s.id === r.id))
+          const dbIds = new Set(dbReports.map((r) => r.id))
+          const remainingSeed = seedReports.filter((r) => !dbIds.has(r.id))
+          return [...dbReports, ...remainingSeed]
+        })
+      } catch {
+        // Keep seeded reports if the database is unreachable.
+      }
+    }
+    loadReports()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   const setViewMode = useCallback((mode: ViewMode) => {
     setViewModeState(mode)
     writeSession(VIEW_MODE_KEY, mode)
   }, [])
 
   const value = useMemo<StoreValue>(() => {
-    const addReport: StoreValue["addReport"] = (input) => {
-      const id = `r-${Math.random().toString(36).slice(2, 9)}`
+    const addReport: StoreValue["addReport"] = async (input) => {
+      // Preserve the existing client-side incident grouping behavior.
       const incidentId = input.incidentId ?? findRelatedIncidentId(input, incidents)
-      const report: Report = {
-        ...input,
-        incidentId,
-        id,
-        userId: CURRENT_USER.id,
-        userName: CURRENT_USER.name,
-        createdAt: new Date().toISOString(),
-        confirmationCount: 0,
+
+      const res = await fetch("/api/reports", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...input,
+          incidentId,
+          userId: CURRENT_USER.id,
+          userName: CURRENT_USER.name,
+        }),
+      })
+
+      if (!res.ok) {
+        let message = "We couldn't save your report. Please try again."
+        try {
+          const data = (await res.json()) as { error?: string }
+          if (data?.error) message = data.error
+        } catch {
+          // Ignore body parse failures and use the default message.
+        }
+        throw new Error(message)
       }
+
+      // Use the database record (with its real id and coordinates) as the report.
+      const report = (await res.json()) as Report
+      const id = report.id
       setReports((prev) => [report, ...prev])
       if (incidentId) {
         setIncidents((prev) =>
