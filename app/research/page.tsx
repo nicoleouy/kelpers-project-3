@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/lib/store"
 import { IntelligencePanel } from "@/components/intelligence/intelligence-panel"
+import { AiConclusionsSection } from "@/components/research/ai-conclusions"
 import {
   CATEGORY_DISTRIBUTION,
   IMPACT_STATS,
@@ -328,6 +329,8 @@ export default function ResearchPage() {
           })}
         </div>
       </section>
+
+      <AiConclusionsSection />
     </div>
   )
 }
