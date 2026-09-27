@@ -19,6 +19,7 @@ import {
 import { CategoryIcon } from "@/components/category-icon"
 import { SeverityBadge } from "@/components/severity-badge"
 import { ListenButton } from "@/components/listen-button"
+import { VerificationPanel } from "@/components/verification-status"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -48,7 +49,7 @@ type LocationState = {
 
 export default function ReportPage() {
   const router = useRouter()
-  const { addReport } = useStore()
+  const { addReport, runVerification, verifications } = useStore()
   const [step, setStep] = useState(0)
   const [image, setImage] = useState<string | undefined>()
   const [group, setGroup] = useState<string>(CATEGORY_GROUPS[0])
@@ -146,6 +147,7 @@ export default function ReportPage() {
       severity,
     })
     setSubmitted(report)
+    runVerification(report)
   }
 
   if (submitted) {
@@ -197,6 +199,13 @@ export default function ReportPage() {
               </p>
             </div>
           )}
+
+          <div className="mt-4">
+            <VerificationPanel
+              verification={verifications[submitted.id]}
+              onRun={() => runVerification(submitted)}
+            />
+          </div>
 
           <div className="mt-4 border-t border-border pt-3">
             <ListenButton

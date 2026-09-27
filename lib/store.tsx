@@ -17,6 +17,7 @@ import type {
   ResearchRequest,
   VolunteerOpportunity,
 } from "./types"
+import { requestVerification, type VerificationState } from "./verification/client"
 
 type ViewMode = "community" | "organization"
 
@@ -60,6 +61,25 @@ interface StoreValue {
   addResearch: (r: Omit<ResearchRequest, "id" | "createdAt" | "status">) => void
   respondToIncident: (id: string) => void
   observationCount: number
+  verifications: Record<string, VerificationState>
+  runVerification: (report: Report) => void
+}
+
+const RELATED_WINDOW_MS = 48 * 3_600_000
+const RELATED_DEGREES = 0.05
+
+function findRelatedReports(report: Report, all: Report[]): Report[] {
+  const t = Date.parse(report.createdAt)
+  return all
+    .filter(
+      (r) =>
+        r.id !== report.id &&
+        r.category === report.category &&
+        Math.abs(r.latitude - report.latitude) < RELATED_DEGREES &&
+        Math.abs(r.longitude - report.longitude) < RELATED_DEGREES &&
+        Math.abs(Date.parse(r.createdAt) - t) < RELATED_WINDOW_MS,
+    )
+    .slice(0, 10)
 }
 
 const StoreContext = createContext<StoreValue | null>(null)
@@ -80,6 +100,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [activity, setActivity] = useState<ProfileActivity[]>(PROFILE_ACTIVITY)
   const [viewMode, setViewModeState] = useState<ViewMode>("community")
   const [following, setFollowing] = useState<string[]>(["u-312"])
+  const [verifications, setVerifications] = useState<Record<string, VerificationState>>({})
+
+  // Runs independently of report submission: a failure only updates verification state, never the report.
+  const runVerification = useCallback(
+    (report: Report) => {
+      setVerifications((prev) => ({ ...prev, [report.id]: { state: "pending" } }))
+      const related = findRelatedReports(report, reports)
+      void requestVerification(report, related).then((next) => {
+        setVerifications((prev) => ({ ...prev, [report.id]: next }))
+      })
+    },
+    [reports],
+  )
 
   useEffect(() => {
     setViewModeState(readSession(VIEW_MODE_KEY, "community", (raw) => (raw === "organization" || raw === "community" ? raw : null)))
@@ -211,8 +244,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addResearch,
       respondToIncident,
       observationCount: IMPACT_STATS.observationsThisMonth + Math.max(0, reports.length - SEED_REPORTS.length),
+      verifications,
+      runVerification,
     }
-  }, [reports, incidents, volunteer, research, activity, viewMode, following, setViewMode])
+  }, [reports, incidents, volunteer, research, activity, viewMode, following, setViewMode, verifications, runVerification])
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>
 }
