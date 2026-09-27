@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useStore } from "@/lib/store"
+import { IntelligencePanel } from "@/components/intelligence/intelligence-panel"
 import {
   CATEGORY_DISTRIBUTION,
   IMPACT_STATS,
@@ -186,6 +187,8 @@ export default function ResearchPage() {
           </ResponsiveContainer>
         </div>
       </div>
+
+      <IntelligencePanel />
 
       {/* Privacy note */}
       <div className="flex items-start gap-3 rounded-2xl border border-border bg-secondary/40 p-4">
