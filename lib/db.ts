@@ -9,12 +9,16 @@ declare global {
 }
 
 function createPool() {
-  const connectionString = process.env.DATABASE_URL
-  if (!connectionString) {
+  const raw = process.env.DATABASE_URL
+  if (!raw) {
     throw new Error("DATABASE_URL is not set. Add it as a server-side environment variable.")
   }
+  // Strip any sslmode from the URL so our explicit ssl config (which accepts the
+  // managed provider's self-signed cert chain) is honored instead of verify-full.
+  const url = new URL(raw)
+  url.searchParams.delete("sslmode")
   return new Pool({
-    connectionString,
+    connectionString: url.toString(),
     // Tiger Data / managed Postgres requires TLS.
     ssl: { rejectUnauthorized: false },
     max: 5,
