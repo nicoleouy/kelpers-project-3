@@ -3,8 +3,7 @@
 import { Suspense, useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { EyeOff, Filter, Layers, MapPin } from "lucide-react"
-import { MapView } from "@/components/map/map-view"
-import { MapLegend } from "@/components/map-legend"
+import { LiveHeatmap } from "@/components/map/live-heatmap"
 import { ReportCard } from "@/components/report-card"
 import { IncidentCard } from "@/components/incident-card"
 import { OpportunityCard } from "@/components/opportunity-card"
@@ -261,20 +260,7 @@ function MapPageInner() {
         <aside className={cn("lg:block", showFilters ? "block" : "hidden")}>{filters}</aside>
 
         <div className="flex flex-col gap-6">
-          <div className="relative isolate h-[420px] overflow-hidden rounded-3xl border border-border shadow-sm md:h-[520px]">
-            <MapView
-              reports={filteredReports}
-              incidents={filteredIncidents}
-              opportunities={filteredOpps}
-              focus={focus}
-              highlightId={highlightId}
-              onSelect={(kind, id) => {
-                setHighlightId(null)
-                setSelected({ kind, id })
-              }}
-            />
-            <MapLegend />
-          </div>
+          <LiveHeatmap focus={focus} className="h-[420px] md:h-[520px]" />
 
           {layers.incidents &&
             (filteredIncidents.length > 0 ? (
