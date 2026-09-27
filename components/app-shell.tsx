@@ -26,6 +26,7 @@ const primaryNav = [
 const bottomNav = [
   { href: "/", label: "Home", icon: Home },
   { href: "/map", label: "Map", icon: MapIcon },
+  { href: "/research", label: "Research", icon: Microscope },
   { href: "/report", label: "Report", icon: Plus, center: true },
   { href: "/crisis", label: "Crisis", icon: Siren },
   { href: "/profile", label: "You", icon: User },
@@ -141,7 +142,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         className="z-40 shrink-0 border-t border-border bg-background/95 backdrop-blur md:hidden"
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       >
-        <div className="mx-auto flex max-w-md items-center justify-around px-2 py-1.5">
+        <div className="mx-auto flex max-w-md items-center justify-around px-1 py-1.5">
           {bottomNav.map((item) => {
             const Icon = item.icon
             const active = isActive(item.href)
@@ -164,7 +165,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex flex-1 flex-col items-center gap-0.5 rounded-lg py-1.5 text-[11px] font-medium transition-colors",
+                  "flex min-w-0 flex-1 flex-col items-center gap-0.5 whitespace-nowrap rounded-lg py-1.5 text-[10px] font-medium transition-colors min-[360px]:text-[11px]",
                   active ? "text-primary" : "text-muted-foreground",
                   item.href === "/crisis" && "text-crisis",
                 )}

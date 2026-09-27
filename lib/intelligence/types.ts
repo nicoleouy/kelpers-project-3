@@ -62,3 +62,6 @@ export type IntelligenceResponse =
       minimumObservations: number
     }
   | { status: "error"; error: string; profile?: DataProfile }
+
+/** Same as IntelligenceResponse, plus "idle" when enough data exists but no analysis has been run yet. */
+export type ConclusionsResponse = IntelligenceResponse | { status: "idle"; profile: DataProfile }

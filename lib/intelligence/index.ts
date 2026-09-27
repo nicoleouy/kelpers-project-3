@@ -2,7 +2,7 @@ import "server-only"
 import { buildAggregates, buildProfile } from "./aggregate"
 import { loadDataset } from "./dataset"
 import { analyzeWithGrok, GROK_MODEL } from "./grok"
-import type { IntelligenceResponse } from "./types"
+import type { ConclusionsResponse, IntelligenceResponse } from "./types"
 
 export const MIN_OBSERVATIONS = 8
 const CACHE_TTL_MS = 15 * 60_000
@@ -10,6 +10,29 @@ const CACHE_TTL_MS = 15 * 60_000
 // Aggregate analysis is expensive and only changes when the dataset does, so cache by dataset fingerprint.
 const globalCache = globalThis as unknown as {
   __kelpersIntel?: { key: string; at: number; value: Promise<IntelligenceResponse> }
+}
+
+/** Returns the latest analysis for the current dataset without ever calling Grok. */
+export async function peekIntelligence(): Promise<ConclusionsResponse> {
+  const { observations, interventions } = await loadDataset()
+  const profile = buildProfile(observations, interventions)
+  const key = `${profile.observationCount}:${profile.latest}:${profile.interventionCount}`
+
+  if (profile.observationCount < MIN_OBSERVATIONS) {
+    return {
+      status: "insufficient-data",
+      generatedAt: new Date().toISOString(),
+      profile,
+      minimumObservations: MIN_OBSERVATIONS,
+    }
+  }
+
+  const cached = globalCache.__kelpersIntel
+  if (cached && cached.key === key && Date.now() - cached.at < CACHE_TTL_MS) {
+    const value = await cached.value.catch(() => null)
+    if (value) return value
+  }
+  return { status: "idle", profile }
 }
 
 export async function getIntelligence({ refresh = false } = {}): Promise<IntelligenceResponse> {
