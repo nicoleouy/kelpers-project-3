@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils"
 const NO_REPORTS: never[] = []
 
 const LEGEND_GRADIENT: Record<HeatmapCategory, string> = {
-  community: "linear-gradient(to right, #d9f99d, #65a30d, #3f6212, #1a2e05)",
+  community: "linear-gradient(to right, #e9d5ff, #a855f7, #7e22ce, #3b0764)",
   crisis: "linear-gradient(to right, #fecaca, #ef4444, #b91c1c, #450a0a)",
 }
 
